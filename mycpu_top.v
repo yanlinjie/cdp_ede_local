@@ -117,9 +117,9 @@ assign nextpc       = br_taken ? br_target : seq_pc;
 
 always @(posedge clk) begin
     if (reset) begin
-        pc <= 32'h1c000000; 
+        pc <= 32'h1bfffffc;     //trick: to make nextpc be 0x1c000000 during reset 
     end
-    else if (valid) begin
+    else begin
         pc <= nextpc;
     end
 end
