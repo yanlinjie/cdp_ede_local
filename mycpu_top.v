@@ -20,6 +20,16 @@ module mycpu_top(
 reg         reset;
 always @(posedge clk) reset <= ~resetn;
 
+reg         valid;
+always @(posedge clk) begin
+    if (reset) begin
+        valid <= 1'b0;
+    end
+    else begin
+        valid <= 1'b1;
+    end
+end
+
 wire [31:0] seq_pc;
 wire [31:0] nextpc;
 wire        br_taken;
@@ -101,17 +111,15 @@ wire [31:0] alu_src2   ;
 wire [31:0] alu_result ;
 
 wire [31:0] mem_result;
-wire [31:0] ms_final_result;
 
-
-assign seq_pc       = fs_pc + 3'h4;
+assign seq_pc       = pc + 3'h4;
 assign nextpc       = br_taken ? br_target : seq_pc;
 
 always @(posedge clk) begin
     if (reset) begin
         pc <= 32'h1c000000; 
     end
-    else begin
+    else if (valid) begin
         pc <= nextpc;
     end
 end
@@ -233,8 +241,8 @@ assign br_taken = (   inst_beq  &&  rj_eq_rd
                    || inst_jirl
                    || inst_bl
                    || inst_b
-                  ) && ds_valid;
-assign br_target = (inst_beq || inst_bne || inst_bl || inst_b) ? (ds_pc + br_offs) :
+                  );
+assign br_target = (inst_beq || inst_bne || inst_bl || inst_b) ? (pc + br_offs) :
                                                    /*inst_jirl*/ (rj_value + jirl_offs);
 
 assign alu_src1 = src1_is_pc  ? pc[31:0] : rj_value;
@@ -247,15 +255,14 @@ alu u_alu(
     .alu_result (alu_result)
     );
 
-assign data_sram_en    = (rfrom_mem || mem_we) && valid;
-assign data_sram_we    = mem_we;
+assign data_sram_we    = mem_we && valid;
 assign data_sram_addr  = alu_result;
 assign data_sram_wdata = rkd_value;
 
 assign mem_result   = data_sram_rdata;
 assign final_result = res_from_mem ? mem_result : alu_result;
 
-assign rf_we    = gr_we;
+assign rf_we    = gr_we && valid;
 assign rf_waddr = dest;
 assign rf_wdata = final_result;
 
