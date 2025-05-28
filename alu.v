@@ -71,13 +71,13 @@ assign sltu_result[0]    = ~adder_cout;
 
 // bitwise operation
 assign and_result = alu_src1 & alu_src2;
-assign or_result  = alu_src1 | alu_src2 ;
+assign or_result  = alu_src1 | alu_src2;
 assign nor_result = ~or_result;
 assign xor_result = alu_src1 ^ alu_src2;
 assign lui_result = alu_src2;
 
 // SLL result
-assign sll_result = alu_src1 << alu_src2;   //rj << i5
+assign sll_result = alu_src1 << alu_src2[4:0];   //rj << ui5
 
 // SRL, SRA result
 assign sr64_result = {{32{op_sra & alu_src1[31]}}, alu_src1[31:0]} >> alu_src2[4:0]; //rj >> i5
