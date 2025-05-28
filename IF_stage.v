@@ -2,21 +2,21 @@
 
 
 module if_stage(
-    input     wire                     clk            ,
-    input     wire                     reset          ,
+    input  wire                         clk                        ,
+    input  wire                         reset                      ,
     //allwoin
-    input     wire                     ds_allowin     ,
+    input  wire                         ds_allowin                 ,//相当于下游信号的ready
     //brbus
-    input wire [`BR_BUS_WD       -1:0] br_bus         ,
+    input  wire        [`BR_BUS_WD       -1:0]br_bus                     ,//跳转信号的前递 from ds
     //to ds
-    output wire                        fs_to_ds_valid ,
-    output wire [`FS_TO_DS_BUS_WD -1:0] fs_to_ds_bus   ,
+    output wire                         fs_to_ds_valid             ,//相当于fs vaid
+    output wire        [`FS_TO_DS_BUS_WD -1:0]fs_to_ds_bus               ,//传给下游ds的数据
     // inst sram interface
-    output  wire      inst_sram_en   ,
-    output wire [ 3:0] inst_sram_we  ,
-    output wire [31:0] inst_sram_addr ,
-    output wire [31:0] inst_sram_wdata,
-    input wire  [31:0] inst_sram_rdata
+    output wire                         inst_sram_en               ,//外设接口 用于取值
+    output wire        [   3:0]         inst_sram_we               ,
+    output wire        [  31:0]         inst_sram_addr             ,
+    output wire        [  31:0]         inst_sram_wdata            ,
+    input  wire        [  31:0]         inst_sram_rdata             
 );
 
 reg         fs_valid;
@@ -46,8 +46,10 @@ assign nextpc       = br_taken ? br_target : seq_pc;
 
 // IF stage
 assign fs_ready_go    = 1'b1;   // 准备发送
-assign fs_allowin     = !fs_valid || fs_ready_go && ds_allowin;     // 可接收数据（不阻塞
-assign fs_to_ds_valid =  fs_valid && fs_ready_go;   
+assign fs_allowin     = !fs_valid || fs_ready_go && ds_allowin;     // 可接收数据（不阻塞  等待下游信号的ready
+//输出的fs有效信号，这这里是相当于复位后 且下游准备好后，取值则为valid
+//只有在下游信号ds_allowin的时候才会输出相应的值pc 和 inst
+assign fs_to_ds_valid =  fs_valid && fs_ready_go; //本阶段 fs已经ready && fs已经valid  
 always @(posedge clk) begin
     if (reset) begin
         fs_valid <= 1'b0;

@@ -4,17 +4,17 @@ module exe_stage(
     input    wire                      clk           ,
     input    wire                      reset         ,
     //allowin
-    input   wire                       ms_allowin    ,
-    output  wire                       es_allowin    ,
+    input   wire                       ms_allowin    ,//下游的allowin
+    output  wire                       es_allowin    ,//
     //from ds
     input  wire                        ds_to_es_valid,
-    input wire [`DS_TO_ES_BUS_WD -1:0] ds_to_es_bus  ,
+    input wire [`DS_TO_ES_BUS_WD -1:0] ds_to_es_bus  ,//来自ds的bus_data
     //to ms
-    output  wire                       es_to_ms_valid,
-    output wire [`ES_TO_MS_BUS_WD -1:0] es_to_ms_bus  ,
+    output  wire                       es_to_ms_valid,//
+    output wire [`ES_TO_MS_BUS_WD -1:0] es_to_ms_bus ,//
 
     // data sram interface(write)
-    output wire       data_sram_en   ,
+    output wire       data_sram_en   ,//对sram的接口
     output wire [ 3:0] data_sram_we   ,
     output wire [31:0] data_sram_addr ,
     output wire [31:0] data_sram_wdata
@@ -41,10 +41,10 @@ wire [31:0] imm;
 wire [31:0] es_pc;
 
 
-assign {alu_op,
+assign {alu_op,      
         es_load_op,
         src1_is_pc,
-        src2_is_imm,
+        src2_is_imm, 
         src2_is_4,
         gr_we,
         es_mem_we,
@@ -53,7 +53,7 @@ assign {alu_op,
         rj_value,
         rkd_value,
         es_pc,
-        res_from_mem
+        res_from_mem 
        } = ds_to_es_bus_r;
 
 wire [31:0] alu_src1   ;

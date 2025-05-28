@@ -1,5 +1,6 @@
 `include "C:/Users/14861/Desktop/loongson/cdp_ede_local/mycpu_env/myCPU/my_cpu.vh"
-
+//本阶段译码，如果有跳转指令, 输出跳转数据, 并且前递给上游信号
+//输出bus_data给下游
 //来自下游的ready 
 module id_stage(
     input    wire                      clk           ,
@@ -14,7 +15,7 @@ module id_stage(
     output  wire                       ds_to_es_valid,//输出给下游valid 
     output wire [`DS_TO_ES_BUS_WD -1:0] ds_to_es_bus ,//id bus -> es
     //to fs
-    output wire [`BR_BUS_WD       -1:0] br_bus        ,//跳转 前递 br_taken br_target
+    output wire [`BR_BUS_WD       -1:0] br_bus       ,//跳转 前递 br_taken br_target
     //to rf: for write back
     input wire  [`WS_TO_RF_BUS_WD -1:0] ws_to_rf_bus  //写回 id模块中有regfile模块
 );
@@ -245,14 +246,17 @@ assign ds_to_es_bus = {alu_op       ,   // 12 用于判断alu操作符
                        mem_we       ,   // 1  mem写使能
                        dest         ,   // 5  rd addr
                        imm          ,   // 32 imm
-                       rj_value     ,   // 32 rj
-                       rkd_value    ,   // 32 
+                       rj_value     ,   // 32 rj data
+                       rkd_value    ,   // 32 rk data
                        ds_pc        ,   // 32  //跳转pc
                        res_from_mem            //rd data from mem
                     };
 
 assign ds_ready_go    = 1'b1;
 assign ds_allowin     = !ds_valid || ds_ready_go && es_allowin;
+//ds_to_es_valid取决于当前ds_valid有效并且ds_ready_go
+//ds_valid取决于ds_allowin（取决于es_allowin） 并且上游fs_to_ds_valid有效
+//下游 allowin 抛开实验不谈，这里的总线是有点小bug的，不过是不会影响整体运行
 assign ds_to_es_valid = ds_valid && ds_ready_go;
 always @(posedge clk) begin
     if (reset) begin
