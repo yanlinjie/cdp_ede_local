@@ -11,6 +11,9 @@ module wb_stage(
     input wire [`MS_TO_WS_BUS_WD -1:0]  ms_to_ws_bus  ,
     //to rf: for write back
     output wire [`WS_TO_RF_BUS_WD -1:0]  ws_to_rf_bus  ,//这个连接到ds模块, regfile在ds模块中。
+    
+    
+
     //trace debug interface
     output wire[31:0] debug_wb_pc     ,
     output wire[ 3:0] debug_wb_rf_we  ,

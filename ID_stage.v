@@ -254,9 +254,14 @@ assign ds_to_es_bus = {alu_op       ,   // 12 用于判断alu操作符
 
 assign ds_ready_go    = 1'b1;
 assign ds_allowin     = !ds_valid || ds_ready_go && es_allowin;
+
+//ds_valid 取指阶段到译码阶段的 valid 
 //ds_to_es_valid取决于当前ds_valid有效并且ds_ready_go
 //ds_valid取决于ds_allowin（取决于es_allowin） 并且上游fs_to_ds_valid有效
 //下游 allowin 抛开实验不谈，这里的总线是有点小bug的，不过是不会影响整体运行
+//上面的组合逻辑负责整个阶段的执行
+//时序逻辑只负责握手，以及输出bus，相当于给下一阶段传输数据
+
 assign ds_to_es_valid = ds_valid && ds_ready_go;
 always @(posedge clk) begin
     if (reset) begin
