@@ -12,7 +12,7 @@ module wb_stage(
     //to rf: for write back
     output wire [`WS_TO_RF_BUS_WD -1:0]  ws_to_rf_bus  ,//这个连接到ds模块, regfile在ds模块中。
     
-    
+    output wire [4:0] wb_dest,//输出给id模块。用于检查是否需要阻塞
 
     //trace debug interface
     output wire[31:0] debug_wb_pc     ,
@@ -38,6 +38,9 @@ assign {ws_gr_we       ,  //69:69
 wire        rf_we;
 wire [4 :0] rf_waddr;
 wire [31:0] rf_wdata;
+
+assign wb_dest = rf_waddr & {5{ws_valid}};
+
 assign ws_to_rf_bus = {rf_we   ,  //37:37
                        rf_waddr,  //36:32
                        rf_wdata   //31:0

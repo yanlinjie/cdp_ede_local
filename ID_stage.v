@@ -17,7 +17,12 @@ module id_stage(
     //to fs
     output wire [`BR_BUS_WD       -1:0] br_bus       ,//跳转 前递 br_taken br_target
     //to rf: for write back
-    input wire  [`WS_TO_RF_BUS_WD -1:0] ws_to_rf_bus  //写回 id模块中有regfile模块
+    input wire  [`WS_TO_RF_BUS_WD -1:0] ws_to_rf_bus , //写回 id模块中有regfile模块
+
+    input wire [4:0] ex_dest,
+    input wire [4:0] wb_dest,
+    input wire [4:0] mem_dest
+
 );
 
 wire        br_taken;
@@ -39,6 +44,8 @@ wire        dst_is_r1;
 wire        gr_we;
 wire        mem_we;
 wire        src_reg_is_rd;
+wire        src_reg_is_rj;
+wire        src_reg_is_rk;
 wire [4: 0] dest;
 wire [31:0] rj_value;
 wire [31:0] rkd_value;
@@ -106,7 +113,8 @@ wire [31:0] alu_result ;
 
 wire [31:0] mem_result;
 wire [31:0] final_result;
-
+reg delay_slot;
+// wire ;
 
 assign op_31_26  = ds_inst[31:26];
 assign op_25_22  = ds_inst[25:22];
@@ -116,6 +124,18 @@ assign op_19_15  = ds_inst[19:15];
 assign rd   = ds_inst[ 4: 0];//
 assign rj   = ds_inst[ 9: 5];
 assign rk   = ds_inst[14:10];
+
+//block
+wire same_rj;
+wire same_rk;
+wire same_rd;
+wire block;
+wire inst_no_dest_reg;//无rd寄存器
+assign same_rd = src_reg_is_rd && rd != 5'b0 &&((rd == ex_dest) || (rd == mem_dest) || (rd == wb_dest)); 
+assign same_rj = src_reg_is_rj && rj != 5'b0 &&((rj == ex_dest) || (rj == mem_dest) || (rj == wb_dest)); 
+assign same_rk = src_reg_is_rk && rk != 5'b0 &&((rk == ex_dest) || (rk == mem_dest) || (rk == wb_dest)); 
+assign inst_no_dest_reg = inst_st_w | inst_b | inst_beq | inst_bne;
+assign block = same_rd || same_rj || same_rk;
 
 assign i12  = ds_inst[21:10];
 assign i20  = ds_inst[24: 5];
@@ -179,7 +199,6 @@ assign br_offs = need_si26 ? {{ 4{i26[25]}}, i26[25:0], 2'b0} :
 
 assign jirl_offs = {{14{i16[15]}}, i16[15:0], 2'b0};
 
-assign src_reg_is_rd = inst_beq | inst_bne | inst_st_w;
 
 assign src1_is_pc    = inst_jirl | inst_bl;
 
@@ -197,7 +216,13 @@ assign res_from_mem  = inst_ld_w;
 assign dst_is_r1     = inst_bl;
 assign gr_we         = ~inst_st_w & ~inst_beq & ~inst_bne & ~inst_b;//rd 写使能
 assign mem_we        = inst_st_w;
-assign dest          = dst_is_r1 ? 5'd1 : rd;
+assign dest          = inst_no_dest_reg ? 5'b0 :
+                                        dst_is_r1 ? 5'd1 : rd;
+
+assign src_reg_is_rd = inst_beq | inst_bne | inst_st_w;
+assign src_reg_is_rj = ~(inst_b | inst_bl | inst_lu12i_w);
+assign src_reg_is_rk = ~(inst_slli_w | inst_srli_w | inst_srai_w | inst_addi_w | inst_ld_w | inst_st_w | inst_jirl | 
+                      inst_b | inst_bl | inst_beq | inst_bne | inst_lu12i_w);
 
 assign rf_raddr1 = rj;
 assign rf_raddr2 = src_reg_is_rd ? rd :rk;
@@ -221,7 +246,7 @@ assign br_taken = (   inst_beq  &&  rj_eq_rd
                    || inst_jirl
                    || inst_bl
                    || inst_b
-                )  && ds_valid;
+                )  && ds_valid && !delay_slot ;
 assign br_target = (inst_beq || inst_bne || inst_bl || inst_b) ? (ds_pc + br_offs) :
                                                    /*inst_jirl*/ (rj_value + jirl_offs);
 
@@ -237,6 +262,7 @@ assign {rf_we   ,  //37:37
         rf_wdata   //31:0
        } = ws_to_rf_bus;
 
+//译码结束后打包进bus 再传输给下一阶段 
 assign ds_to_es_bus = {alu_op       ,   // 12 用于判断alu操作符
                        load_op      ,   // 1  目前未使用
                        src1_is_pc   ,   // 1  alusrc1来源
@@ -252,27 +278,27 @@ assign ds_to_es_bus = {alu_op       ,   // 12 用于判断alu操作符
                        res_from_mem            //rd data from mem
                     };
 
-assign ds_ready_go    = 1'b1;
-assign ds_allowin     = !ds_valid || ds_ready_go && es_allowin;
+assign ds_ready_go    = ~block;//针对于本阶段
 
-//ds_valid 取指阶段到译码阶段的 valid 
-//ds_to_es_valid取决于当前ds_valid有效并且ds_ready_go
-//ds_valid取决于ds_allowin（取决于es_allowin） 并且上游fs_to_ds_valid有效
-//下游 allowin 抛开实验不谈，这里的总线是有点小bug的，不过是不会影响整体运行
-//上面的组合逻辑负责整个阶段的执行
-//时序逻辑只负责握手，以及输出bus，相当于给下一阶段传输数据
+assign ds_allowin     = !ds_valid || ds_ready_go && es_allowin;//针对于上游
 
-assign ds_to_es_valid = ds_valid && ds_ready_go;
+assign ds_to_es_valid = ds_valid && ds_ready_go && ! delay_slot; //针对于下游
 always @(posedge clk) begin
     if (reset) begin
         ds_valid <= 1'b0;
+        delay_slot <= 1'b0;
     end
     else if (ds_allowin) begin
         ds_valid <= fs_to_ds_valid;
     end
 
-    if (fs_to_ds_valid && ds_allowin) begin
-        fs_to_ds_bus_r <= fs_to_ds_bus;
+    if (fs_to_ds_valid && ds_allowin) begin //valid 和 allowin 握手
+        fs_to_ds_bus_r <= fs_to_ds_bus;     //寄存数据后，组合逻辑译码, 
+        if (br_taken) begin
+            delay_slot <= 1'b1;
+          end else begin
+            delay_slot <=1'b0;
+          end
     end
 end
 

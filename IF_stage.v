@@ -46,16 +46,15 @@ assign nextpc       = br_taken ? br_target : seq_pc;
 
 // IF stage
 assign fs_ready_go    = 1'b1;   // 准备发送
-assign fs_allowin     = !fs_valid || fs_ready_go && ds_allowin;     // 可接收数据（不阻塞  等待下游信号的ready
-//输出的fs有效信号，这这里是相当于复位后 且下游准备好后，取值则为valid
-//只有在下游信号ds_allowin的时候才会输出相应的值pc 和 inst
-assign fs_to_ds_valid =  fs_valid && fs_ready_go; //本阶段 fs已经ready && fs已经valid  
+assign fs_allowin     = !fs_valid || fs_ready_go && ds_allowin;     // (!fs_valid) || (fs_ready_go && ds_allowin);
+
+assign fs_to_ds_valid =  fs_valid && fs_ready_go; //当前时钟周期取值到译码的数据有效 即：
 always @(posedge clk) begin
     if (reset) begin
         fs_valid <= 1'b0;
     end
     else if (fs_allowin) begin
-        fs_valid <= to_fs_valid;    // 数据有效
+        fs_valid <= to_fs_valid;    //目前复位后，fs基本上一直有效
     end
 end
 
@@ -68,7 +67,7 @@ always @(posedge clk) begin
     end
 end
 
-assign inst_sram_en    = to_fs_valid && fs_allowin;
+assign inst_sram_en    = to_fs_valid && fs_allowin ;
 assign inst_sram_we   = 4'h0;
 assign inst_sram_addr  = nextpc;
 assign inst_sram_wdata = 32'b0;

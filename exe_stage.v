@@ -13,6 +13,8 @@ module exe_stage(
     output  wire                       es_to_ms_valid,//
     output wire [`ES_TO_MS_BUS_WD -1:0] es_to_ms_bus ,//
 
+    output wire [4:0] ex_dest,//输出给id 目前用于阻塞
+
     // data sram interface(write)
     output wire       data_sram_en   ,//对sram的接口
     output wire [ 3:0] data_sram_we   ,
@@ -73,6 +75,8 @@ assign es_to_ms_bus = {res_from_mem,  //70:70 1
                        alu_result  ,  //63:32 32
                        es_pc          //31:0  32
                       };
+
+assign ex_dest = dest & {5{es_valid}};
 
 assign es_ready_go    = 1'b1;
 assign es_allowin     = !es_valid || es_ready_go && ms_allowin;

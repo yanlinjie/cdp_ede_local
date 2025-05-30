@@ -14,6 +14,8 @@ module mem_stage(
     output    wire                     ms_to_ws_valid,
     output wire [`MS_TO_WS_BUS_WD -1:0] ms_to_ws_bus  ,
     
+    output wire [4:0] mem_dest,
+
     //from data-sram
     input wire  [31                 :0] data_sram_rdata
 );
@@ -31,6 +33,8 @@ wire [31:0] ms_pc;
 wire [31:0] mem_result;
 wire [31:0] ms_final_result;
 
+
+assign mem_dest = ms_dest & {5{ms_valid}};
 
 assign {ms_res_from_mem,  //70:70
         ms_gr_we       ,  //69:69
