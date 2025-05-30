@@ -17,7 +17,7 @@ module mem_stage(
     output wire [4:0] mem_dest,
 
     //from data-sram
-    input wire  [31                 :0] data_sram_rdata
+    input wire  [31                 :0] data_sram_rdata//访存结果
 );
 
 reg         ms_valid;

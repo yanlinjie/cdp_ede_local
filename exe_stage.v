@@ -15,7 +15,7 @@ module exe_stage(
 
     output wire [4:0] ex_dest,//输出给id 目前用于阻塞
 
-    // data sram interface(write) 如果需要读出数据，则这个时钟周期就需要使能bram
+    // data sram interface(write) 
     output wire       data_sram_en   ,//对sram的接口 
     output wire [ 3:0] data_sram_we   ,
     output wire [31:0] data_sram_addr ,
@@ -106,7 +106,7 @@ alu u_alu(
     );
 
 assign data_sram_en    = 1'b1;
-assign data_sram_we    = es_mem_we && es_valid ? 4'hf : 4'h0;
+assign data_sram_we    = es_mem_we && es_valid ? 4'hf : 4'h0;//
 assign data_sram_addr  = alu_result;
 assign data_sram_wdata = rkd_value;
 
