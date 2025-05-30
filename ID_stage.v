@@ -23,7 +23,7 @@ module id_stage(
     input wire [4:0] ws_to_ds_dest,
     input wire [4:0] ms_to_ds_dest,
 
-    input wire es_to_ds_load_op
+    input wire es_to_ds_load_op//用于判断 转移计算未完成  ld + branch的情况
 
 );
 
@@ -281,6 +281,8 @@ assign br_bus       = {br_stall,br_taken,br_target};
 
 reg  [`FS_TO_DS_BUS_WD -1:0] fs_to_ds_bus_r;
 
+assign load_op  = inst_ld_w;
+
 assign {ds_inst,
         ds_pc  } = fs_to_ds_bus_r;
 
@@ -291,7 +293,7 @@ assign {rf_we   ,  //37:37
 
 //译码结束后打包进bus 再传输给下一阶段 
 assign ds_to_es_bus = {alu_op       ,   // 12 用于判断alu操作符
-                       load_op      ,   // 1  目前未使用
+                       load_op      ,   // 1  load operator
                        src1_is_pc   ,   // 1  alusrc1来源
                        src2_is_imm  ,   // 1  alusrc2来源
                        src2_is_4    ,   // 1  alusrc2来源 表示是 4
@@ -307,9 +309,9 @@ assign ds_to_es_bus = {alu_op       ,   // 12 用于判断alu操作符
 
 assign ds_ready_go    = no_wait;//针对于本阶段
 
-assign ds_allowin     = !ds_valid || ds_ready_go && es_allowin;//针对于上游
+assign ds_allowin     = !ds_valid || ds_ready_go && es_allowin;//->  !ds_valid || (ds_ready_go && es_allowin) 当本阶段ready 并且 es allow in
 
-assign ds_to_es_valid = ds_valid && ds_ready_go ;//! delay_slot; //针对于下游
+assign ds_to_es_valid = ds_valid && ds_ready_go ;//ds_valid 来自于fs_to_ds_valid 只有在时钟的上升沿后才会变化
 always @(posedge clk) begin
     if (reset) begin
         ds_valid <= 1'b0;

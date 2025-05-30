@@ -29,11 +29,8 @@ wire [31:0] nextpc;
 
 wire         br_taken;
 wire [ 31:0] br_target;
-assign {br_stall, br_taken, br_target} = br_bus;
-// pre-IF stage
-assign to_fs_valid  = ~reset && pre_if_ready_go;
-assign pre_if_ready_go = ~br_stall;
-// if taken is valid and if stage is block, get the instruction after the jump inst
+
+
 
 
 wire [31:0] fs_inst;
@@ -41,11 +38,14 @@ reg  [31:0] fs_pc;
 assign fs_to_ds_bus = {fs_inst ,
                        fs_pc   };
 
+ //from ds brtaken                      
+assign {br_stall, br_taken, br_target} = br_bus;
+
 // pre-IF stage
-assign to_fs_valid  = ~reset;
-// because after sending fs_pc to ds, the seq_pc = fs_pc + 4 immediately
-// Actually, the seq_pc is just a delay slot instruction
-// if we use inst pc, here need to -4, it's more troublesome
+// pre-IF stage
+// if taken is valid and if stage is block, get the instruction after the jump inst
+assign pre_if_ready_go = ~ br_stall;
+assign to_fs_valid  = ~reset && pre_if_ready_go;
 assign seq_pc       = fs_pc + 3'h4;
 assign nextpc       = br_taken ? br_target : seq_pc; 
 

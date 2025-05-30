@@ -15,12 +15,12 @@ module exe_stage(
 
     output wire [4:0] ex_dest,//输出给id 目前用于阻塞
 
-    // data sram interface(write)
-    output wire       data_sram_en   ,//对sram的接口
+    // data sram interface(write) 如果需要读出数据，则这个时钟周期就需要使能bram
+    output wire       data_sram_en   ,//对sram的接口 
     output wire [ 3:0] data_sram_we   ,
     output wire [31:0] data_sram_addr ,
     output wire [31:0] data_sram_wdata,
-    output        es_to_ds_load_op
+    output  wire      es_to_ds_load_op
 );
 
 reg         es_valid      ;
@@ -65,9 +65,9 @@ wire [31:0] alu_result ;
 
 
 // did't use in lab7
-wire        es_res_from_mem;
-assign es_res_from_mem = es_load_op;
-
+// wire        es_res_from_mem;
+// assign es_res_from_mem = es_load_op;
+assign es_to_ds_load_op = es_load_op & es_valid;
 
 
 assign es_to_ms_bus = {res_from_mem,  //70:70 1
