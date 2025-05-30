@@ -19,9 +19,14 @@ module id_stage(
     //to rf: for write back
     input wire  [`WS_TO_RF_BUS_WD -1:0] ws_to_rf_bus , //写回 id模块中有regfile模块
 
+//前递寄存器地址
     input wire [4:0] es_to_ds_dest,
     input wire [4:0] ws_to_ds_dest,
     input wire [4:0] ms_to_ds_dest,
+//前递寄存器data
+	input   [31:0]  es_to_ds_result,
+    input   [31:0]  ms_to_ds_result,
+    input   [31:0]  ws_to_ds_result,
 
     input wire es_to_ds_load_op//用于判断 转移计算未完成  ld + branch的情况
 
@@ -237,15 +242,21 @@ regfile u_regfile(
     .wdata  (rf_wdata )
     );
 
-assign rj_value  = rf_rdata1;
-assign rkd_value = rf_rdata2;
+//四选一数据选择器 es ms ws or regdata
+assign rj_value  = rj_wait ? ((rj == es_to_ds_dest) ? es_to_ds_result :
+                              (rj == ms_to_ds_dest) ? ms_to_ds_result : ws_to_ds_result)
+                            : rf_rdata1;
+assign rkd_value = rk_wait ? ((rk == es_to_ds_dest) ? es_to_ds_result :
+                            (rk == ms_to_ds_dest) ? ms_to_ds_result : ws_to_ds_result) : 
+                   rd_wait ? ((rd == es_to_ds_dest) ? es_to_ds_result :
+                            (rd == ms_to_ds_dest) ? ms_to_ds_result : ws_to_ds_result) :
+                   rf_rdata2;
+
 
 assign rj_eq_rd = (rj_value == rkd_value);
 
 assign br_target = (inst_beq || inst_bne || inst_bl || inst_b) ? (ds_pc + br_offs) :
                                                    /*inst_jirl*/ (rj_value + jirl_offs);
-
-
 
 
 
@@ -255,7 +266,7 @@ assign br_taken = (   inst_beq  &&  rj_eq_rd
                    || inst_jirl
                    || inst_bl
                    || inst_b
-                )  && ds_valid & no_wait;
+                )  && ds_valid && ~load_stall;
                 
 assign inst_no_dest = inst_st_w | inst_b | inst_beq | inst_bne;
 
@@ -307,7 +318,7 @@ assign ds_to_es_bus = {alu_op       ,   // 12 用于判断alu操作符
                        res_from_mem            //rd data from mem
                     };
 
-assign ds_ready_go    = no_wait;//针对于本阶段
+assign ds_ready_go    = ds_valid & ~load_stall;//针对于本阶段
 
 assign ds_allowin     = !ds_valid || ds_ready_go && es_allowin;//->  !ds_valid || (ds_ready_go && es_allowin) 当本阶段ready 并且 es allow in
 

@@ -25,24 +25,30 @@ module mycpu_top(
 reg         reset;
 always @(posedge clk) reset <= ~resetn;
 
-wire         ds_allowin;
-wire         es_allowin;
-wire         ms_allowin;
-wire         ws_allowin;
-wire         fs_to_ds_valid;
-wire         ds_to_es_valid;
-wire         es_to_ms_valid;
-wire         ms_to_ws_valid;
+wire                                    ds_allowin                 ;
+wire                                    es_allowin                 ;
+wire                                    ms_allowin                 ;
+wire                                    ws_allowin                 ;
+wire                                    fs_to_ds_valid             ;
+wire                                    ds_to_es_valid             ;
+wire                                    es_to_ms_valid             ;
+wire                                    ms_to_ws_valid             ;
 wire [`FS_TO_DS_BUS_WD -1:0] fs_to_ds_bus;
 wire [`DS_TO_ES_BUS_WD -1:0] ds_to_es_bus;
 wire [`ES_TO_MS_BUS_WD -1:0] es_to_ms_bus;
 wire [`MS_TO_WS_BUS_WD -1:0] ms_to_ws_bus;
 wire [`WS_TO_RF_BUS_WD -1:0] ws_to_rf_bus;
 wire [`BR_BUS_WD       -1:0] br_bus;
-wire [4:0] ex_dest;
-wire [4:0] mem_dest;
-wire [4:0] wb_dest;
-wire es_to_ds_load_op;
+
+//前递
+wire                   [   4:0]         ex_dest                    ;
+wire                   [   4:0]         mem_dest                   ;
+wire                   [   4:0]         wb_dest                    ;
+wire                                    es_to_ds_load_op           ;
+
+wire                   [  31:0]         es_to_ds_result            ;
+wire                   [  31:0]         ms_to_ds_result           ;
+wire                   [  31:0]         ws_to_ds_result            ;
 // IF stage
 if_stage if_stage(
     .clk            (clk            ),
@@ -82,7 +88,9 @@ id_stage id_stage(
     .es_to_ds_dest  (ex_dest    ),
     .ws_to_ds_dest  (wb_dest    ),
     .ms_to_ds_dest  (mem_dest   ),
-
+    .es_to_ds_result(es_to_ds_result),
+    .ms_to_ds_result(ms_to_ds_result),
+    .ws_to_ds_result(ws_to_ds_result),
     .es_to_ds_load_op(es_to_ds_load_op)
 );
 // EXE stage
@@ -100,7 +108,7 @@ exe_stage exe_stage(
     .es_to_ms_bus   (es_to_ms_bus   ),
 
     .ex_dest(ex_dest),
-
+    .es_to_ds_result(es_to_ds_result),
     // data sram interface
     .data_sram_en   (data_sram_en   ),
     .data_sram_we   (data_sram_we  ),
@@ -125,7 +133,8 @@ mem_stage mem_stage(
     //from data-sram
     .data_sram_rdata(data_sram_rdata),
 
-    .mem_dest(mem_dest)
+    .mem_dest(mem_dest),
+    .ms_to_ds_result(ms_to_ds_result)
 );
 // WB stage
 wb_stage wb_stage(
@@ -140,6 +149,7 @@ wb_stage wb_stage(
     .ws_to_rf_bus   (ws_to_rf_bus   ),
 
     .wb_dest(wb_dest),
+    .ws_to_ds_result(ws_to_ds_result),
 
     //trace debug interface
     .debug_wb_pc      (debug_wb_pc      ),

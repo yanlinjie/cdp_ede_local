@@ -41,11 +41,11 @@ assign fs_to_ds_bus = {fs_inst ,
  //from ds brtaken                      
 assign {br_stall, br_taken, br_target} = br_bus;
 
-// pre-IF stage
+
 // pre-IF stage
 // if taken is valid and if stage is block, get the instruction after the jump inst
 assign pre_if_ready_go = ~ br_stall;
-assign to_fs_valid  = ~reset && pre_if_ready_go;
+assign to_fs_valid  = ~reset ;//&& pre_if_ready_go;
 assign seq_pc       = fs_pc + 3'h4;
 assign nextpc       = br_taken ? br_target : seq_pc; 
 
@@ -72,7 +72,7 @@ always @(posedge clk) begin
     end
 end
 
-assign inst_sram_en    = to_fs_valid && (fs_allowin || br_taken) && pre_if_ready_go;
+assign inst_sram_en    = to_fs_valid && (fs_allowin || br_taken) ;
 assign inst_sram_we   = 4'h0;
 assign inst_sram_addr  = nextpc;
 assign inst_sram_wdata = 32'b0;

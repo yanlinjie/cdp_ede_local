@@ -13,8 +13,9 @@ module mem_stage(
     //to ws
     output    wire                     ms_to_ws_valid,
     output wire [`MS_TO_WS_BUS_WD -1:0] ms_to_ws_bus  ,
-    
+//用于前递   后续可以合并 减少端口 方便阅读吧
     output wire [4:0] mem_dest,
+    output wire [31:0]  ms_to_ds_result,
 
     //from data-sram
     input wire  [31                 :0] data_sram_rdata//访存结果
@@ -34,7 +35,6 @@ wire [31:0] mem_result;
 wire [31:0] ms_final_result;
 
 
-assign mem_dest = ms_dest & {5{ms_valid}};
 
 assign {ms_res_from_mem,  //70:70
         ms_gr_we       ,  //69:69
@@ -65,7 +65,11 @@ always @(posedge clk) begin
     end
 end
 
-assign mem_result   = data_sram_rdata;
+assign mem_result   = data_sram_rdata;//访存读出的数据
 assign ms_final_result = ms_res_from_mem ? mem_result : ms_alu_result;
+
+//前递 to ds
+assign mem_dest = ms_dest & {5{ms_valid}};//
+assign ms_to_ds_result = ms_final_result;
 
 endmodule
