@@ -44,7 +44,7 @@ assign {br_stall, br_taken, br_target} = br_bus;
 
 // pre-IF stage
 // if taken is valid and if stage is block, get the instruction after the jump inst
-assign pre_if_ready_go = ~ br_stall;
+// assign pre_if_ready_go = ~ br_stall; exp9实现了数据的前递 也就是能避免转移未计算的情况
 assign to_fs_valid  = ~reset ;//&& pre_if_ready_go;
 assign seq_pc       = fs_pc + 3'h4;
 assign nextpc       = br_taken ? br_target : seq_pc; 

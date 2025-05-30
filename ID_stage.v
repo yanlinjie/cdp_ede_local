@@ -1,7 +1,7 @@
 `include "C:/Users/14861/Desktop/loongson/cdp_ede_local/mycpu_env/myCPU/my_cpu.vh"
-//本阶段译码，如果有跳转指令, 输出跳转数据, 并且前递给上游信号
-//输出bus_data给下游
-//来自下游的ready 
+//针对exp9 跳转指令需要阻塞 , 访存需要阻塞 ，因为访存得等到ws才能前递访存到的数据
+//当译码到跳转指令时候,并且需要跳转时候, 当前是会阻塞if ,当前时钟周期的取指是无效的.
+
 module id_stage(
     input    wire                      clk           ,
     input     wire                     reset         ,
@@ -128,7 +128,7 @@ wire src_no_rd;
 wire rj_wait;
 wire rk_wait;
 wire rd_wait;
-wire no_wait;
+// wire no_wait;
 wire br_stall;
 wire load_stall;
 
@@ -279,11 +279,12 @@ assign rj_wait = ~src_no_rj && (rj != 5'b00000) && ((rj == es_to_ds_dest) || (rj
 assign rk_wait = ~src_no_rk && (rk != 5'b00000) && ((rk == es_to_ds_dest) || (rk == ms_to_ds_dest) || (rk == ws_to_ds_dest));
 assign rd_wait = ~src_no_rd && (rd != 5'b00000) && ((rd == es_to_ds_dest) || (rd == ms_to_ds_dest) || (rd == ws_to_ds_dest));
 
-assign no_wait = ~rj_wait & ~rk_wait & ~rd_wait;
+// assign no_wait = ~rj_wait & ~rk_wait & ~rd_wait;
 
 
-// es is load and ds is jmp(taken)
+// es is load and ds is jmp(taken) exp9 未使用
 assign br_stall   = load_stall & br_taken & ds_valid;
+//访存指令，得等到wb阶段才会有data 是需要阻塞
 assign load_stall = es_to_ds_load_op & (((rj == es_to_ds_dest) & rj_wait) |
                                         ((rk == es_to_ds_dest) & rk_wait) |
                                         ((rd == es_to_ds_dest) & rd_wait)); 
@@ -323,6 +324,8 @@ assign ds_ready_go    = ds_valid & ~load_stall;//针对于本阶段
 assign ds_allowin     = !ds_valid || ds_ready_go && es_allowin;//->  !ds_valid || (ds_ready_go && es_allowin) 当本阶段ready 并且 es allow in
 
 assign ds_to_es_valid = ds_valid && ds_ready_go ;//ds_valid 来自于fs_to_ds_valid 只有在时钟的上升沿后才会变化
+
+
 always @(posedge clk) begin
     if (reset) begin
         ds_valid <= 1'b0;
