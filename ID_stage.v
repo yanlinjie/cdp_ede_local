@@ -19,9 +19,11 @@ module id_stage(
     //to rf: for write back
     input wire  [`WS_TO_RF_BUS_WD -1:0] ws_to_rf_bus , //写回 id模块中有regfile模块
 
-    input wire [4:0] ex_dest,
-    input wire [4:0] wb_dest,
-    input wire [4:0] mem_dest
+    input wire [4:0] es_to_ds_dest,
+    input wire [4:0] ws_to_ds_dest,
+    input wire [4:0] ms_to_ds_dest,
+
+    input wire es_to_ds_load_op
 
 );
 
@@ -113,8 +115,17 @@ wire [31:0] alu_result ;
 
 wire [31:0] mem_result;
 wire [31:0] final_result;
-reg delay_slot;
-// wire ;
+
+wire inst_no_dest;
+wire src_no_rj;
+wire src_no_rk;
+wire src_no_rd;
+wire rj_wait;
+wire rk_wait;
+wire rd_wait;
+wire no_wait;
+wire br_stall;
+wire load_stall;
 
 assign op_31_26  = ds_inst[31:26];
 assign op_25_22  = ds_inst[25:22];
@@ -125,17 +136,6 @@ assign rd   = ds_inst[ 4: 0];//
 assign rj   = ds_inst[ 9: 5];
 assign rk   = ds_inst[14:10];
 
-//block
-wire same_rj;
-wire same_rk;
-wire same_rd;
-wire block;
-wire inst_no_dest_reg;//无rd寄存器
-assign same_rd = src_reg_is_rd && rd != 5'b0 &&((rd == ex_dest) || (rd == mem_dest) || (rd == wb_dest)); 
-assign same_rj = src_reg_is_rj && rj != 5'b0 &&((rj == ex_dest) || (rj == mem_dest) || (rj == wb_dest)); 
-assign same_rk = src_reg_is_rk && rk != 5'b0 &&((rk == ex_dest) || (rk == mem_dest) || (rk == wb_dest)); 
-assign inst_no_dest_reg = inst_st_w | inst_b | inst_beq | inst_bne;
-assign block = same_rd || same_rj || same_rk;
 
 assign i12  = ds_inst[21:10];
 assign i20  = ds_inst[24: 5];
@@ -216,7 +216,7 @@ assign res_from_mem  = inst_ld_w;
 assign dst_is_r1     = inst_bl;
 assign gr_we         = ~inst_st_w & ~inst_beq & ~inst_bne & ~inst_b;//rd 写使能
 assign mem_we        = inst_st_w;
-assign dest          = inst_no_dest_reg ? 5'b0 :
+assign dest          = inst_no_dest ? 5'b0 :
                                         dst_is_r1 ? 5'd1 : rd;
 
 assign src_reg_is_rd = inst_beq | inst_bne | inst_st_w;
@@ -241,16 +241,43 @@ assign rj_value  = rf_rdata1;
 assign rkd_value = rf_rdata2;
 
 assign rj_eq_rd = (rj_value == rkd_value);
+
+assign br_target = (inst_beq || inst_bne || inst_bl || inst_b) ? (ds_pc + br_offs) :
+                                                   /*inst_jirl*/ (rj_value + jirl_offs);
+
+
+
+
+
+// taken signal need to be block too!!!!
 assign br_taken = (   inst_beq  &&  rj_eq_rd
                    || inst_bne  && !rj_eq_rd
                    || inst_jirl
                    || inst_bl
                    || inst_b
-                )  && ds_valid && !delay_slot ;
-assign br_target = (inst_beq || inst_bne || inst_bl || inst_b) ? (ds_pc + br_offs) :
-                                                   /*inst_jirl*/ (rj_value + jirl_offs);
+                )  && ds_valid & no_wait;
+                
+assign inst_no_dest = inst_st_w | inst_b | inst_beq | inst_bne;
 
-assign br_bus = {br_taken, br_target};
+assign src_no_rj    = inst_b | inst_bl | inst_lu12i_w;
+assign src_no_rk    = inst_slli_w | inst_srli_w | inst_srai_w | inst_addi_w | inst_ld_w | inst_st_w | inst_jirl | 
+                      inst_b | inst_bl | inst_beq | inst_bne | inst_lu12i_w;
+assign src_no_rd    = ~inst_st_w & ~inst_beq & ~inst_bne;
+
+assign rj_wait = ~src_no_rj && (rj != 5'b00000) && ((rj == es_to_ds_dest) || (rj == ms_to_ds_dest) || (rj == ws_to_ds_dest));
+assign rk_wait = ~src_no_rk && (rk != 5'b00000) && ((rk == es_to_ds_dest) || (rk == ms_to_ds_dest) || (rk == ws_to_ds_dest));
+assign rd_wait = ~src_no_rd && (rd != 5'b00000) && ((rd == es_to_ds_dest) || (rd == ms_to_ds_dest) || (rd == ws_to_ds_dest));
+
+assign no_wait = ~rj_wait & ~rk_wait & ~rd_wait;
+
+
+// es is load and ds is jmp(taken)
+assign br_stall   = load_stall & br_taken & ds_valid;
+assign load_stall = es_to_ds_load_op & (((rj == es_to_ds_dest) & rj_wait) |
+                                        ((rk == es_to_ds_dest) & rk_wait) |
+                                        ((rd == es_to_ds_dest) & rd_wait)); 
+assign br_bus       = {br_stall,br_taken,br_target};
+
 
 reg  [`FS_TO_DS_BUS_WD -1:0] fs_to_ds_bus_r;
 
@@ -278,15 +305,15 @@ assign ds_to_es_bus = {alu_op       ,   // 12 用于判断alu操作符
                        res_from_mem            //rd data from mem
                     };
 
-assign ds_ready_go    = ~block;//针对于本阶段
+assign ds_ready_go    = no_wait;//针对于本阶段
 
 assign ds_allowin     = !ds_valid || ds_ready_go && es_allowin;//针对于上游
 
-assign ds_to_es_valid = ds_valid && ds_ready_go && ! delay_slot; //针对于下游
+assign ds_to_es_valid = ds_valid && ds_ready_go ;//! delay_slot; //针对于下游
 always @(posedge clk) begin
     if (reset) begin
         ds_valid <= 1'b0;
-        delay_slot <= 1'b0;
+
     end
     else if (ds_allowin) begin
         ds_valid <= fs_to_ds_valid;
@@ -294,11 +321,7 @@ always @(posedge clk) begin
 
     if (fs_to_ds_valid && ds_allowin) begin //valid 和 allowin 握手
         fs_to_ds_bus_r <= fs_to_ds_bus;     //寄存数据后，组合逻辑译码, 
-        if (br_taken) begin
-            delay_slot <= 1'b1;
-          end else begin
-            delay_slot <=1'b0;
-          end
+
     end
 end
 

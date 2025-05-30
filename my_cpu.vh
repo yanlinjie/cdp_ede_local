@@ -1,4 +1,4 @@
-`define BR_BUS_WD       33
+`define BR_BUS_WD       34
 `define FS_TO_DS_BUS_WD 64
 `define DS_TO_ES_BUS_WD 152
 `define ES_TO_MS_BUS_WD 71

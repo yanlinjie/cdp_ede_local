@@ -19,7 +19,8 @@ module exe_stage(
     output wire       data_sram_en   ,//对sram的接口
     output wire [ 3:0] data_sram_we   ,
     output wire [31:0] data_sram_addr ,
-    output wire [31:0] data_sram_wdata
+    output wire [31:0] data_sram_wdata,
+    output        es_to_ds_load_op
 );
 
 reg         es_valid      ;

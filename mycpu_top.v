@@ -42,6 +42,7 @@ wire [`BR_BUS_WD       -1:0] br_bus;
 wire [4:0] ex_dest;
 wire [4:0] mem_dest;
 wire [4:0] wb_dest;
+wire es_to_ds_load_op;
 // IF stage
 if_stage if_stage(
     .clk            (clk            ),
@@ -78,9 +79,11 @@ id_stage id_stage(
     //to rf: for write back
     .ws_to_rf_bus   (ws_to_rf_bus   ),
 
-    .ex_dest(ex_dest),
-    .wb_dest(wb_dest),
-    .mem_dest(mem_dest)
+    .es_to_ds_dest  (ex_dest    ),
+    .ws_to_ds_dest  (wb_dest    ),
+    .ms_to_ds_dest  (mem_dest   ),
+
+    .es_to_ds_load_op(es_to_ds_load_op)
 );
 // EXE stage
 exe_stage exe_stage(
@@ -102,7 +105,9 @@ exe_stage exe_stage(
     .data_sram_en   (data_sram_en   ),
     .data_sram_we   (data_sram_we  ),
     .data_sram_addr (data_sram_addr ),
-    .data_sram_wdata(data_sram_wdata)
+    .data_sram_wdata(data_sram_wdata),
+
+    .es_to_ds_load_op(es_to_ds_load_op)
 );
 // MEM stage
 mem_stage mem_stage(
