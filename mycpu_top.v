@@ -50,6 +50,7 @@ wire                   [  31:0]         es_to_ds_result            ;
 wire                   [  31:0]         ms_to_ds_result           ;
 wire                   [  31:0]         ws_to_ds_result            ;
 wire         es_div_enable;
+wire es_mul_enable;
 wire         es_mul_div_sign;
 wire [31:0]  es_rj_value;
 wire [31:0]  es_rkd_value;
@@ -127,6 +128,7 @@ exe_stage exe_stage(
 
         //div_mul
     .es_div_enable                     (es_div_enable             ),
+    .es_mul_enable(es_mul_enable),
     .es_mul_div_sign                   (es_mul_div_sign           ),
     .rj_value                          (es_rj_value               ),
     .rkd_value                         (es_rkd_value              ),
@@ -193,6 +195,7 @@ div u_div(
 mul u_mul(
     .mul_clk         (clk           ),
     .reset           (reset          ),
+    .mul_en           (es_mul_enable),
     .mul_signed      (es_mul_div_sign),
     .x               (es_rj_value    ),
     .y               (es_rkd_value   ),

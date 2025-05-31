@@ -119,6 +119,7 @@ endmodule
 
 module mul(
     input mul_clk, reset,
+    input mul_en,
     input mul_signed,
     input [31:0] x, y, //x扩展至64位 y扩展至33位 区别有无符号
     output [63:0] result
@@ -127,8 +128,11 @@ module mul(
 wire [63:0] CalX;
 wire [32:0] CalY;
 
-assign CalX = mul_signed ? {{32{x[31]}}, x} : {32'b0, x};
-assign CalY = mul_signed ? {y[31], y} : {1'b0, y};
+assign CalX =  mul_en ? { mul_signed ? {{32{x[31]}}, x} : {32'b0, x} } : 0 ;
+assign CalY =  mul_en ? {mul_signed ? {y[31], y} : {1'b0, y} } : 0;
+
+// assign CalX = mul_signed ? {{32{x[31]}}, x} : {32'b0, x};
+// assign CalY = mul_signed ? {y[31], y} : {1'b0, y};
 
 //booth
 wire [16:0] Carry; //booth计算得到的进位

@@ -15,9 +15,10 @@ module exe_stage(
 
     //div_mul
     output wire                         es_div_enable              ,
+    output wire                         es_mul_enable              ,//之前没加入mul en 仿真时间非常长, 
     output wire                         es_mul_div_sign            ,
-    output wire        [  31:0]         rj_value                ,
-    output wire        [  31:0]         rkd_value               ,
+    output wire        [  31:0]         rj_value                   ,
+    output wire        [  31:0]         rkd_value                  ,
     input  wire                         div_complete               ,
 
 
@@ -56,7 +57,7 @@ wire [31:0] imm;
 wire [31:0] es_pc;
 // wire div_stall;//除法器阻塞
 // wire es_div_enable;
-wire es_mul_enable;
+// wire es_mul_enable;
 wire [ 3:0] es_mul_div_op;
 assign {
         es_mul_div_op   ,   // 156:153   乘除op
@@ -118,7 +119,7 @@ assign alu_src2 = src2_is_imm ? imm : rkd_value;
 
 
 assign es_div_enable = (es_mul_div_op[2] | es_mul_div_op[3]) & es_valid;
-assign es_mul_enable = es_mul_div_op[0] | es_mul_div_op[1];
+assign es_mul_enable = (es_mul_div_op[0] | es_mul_div_op[1] ) & es_valid ;
 
 assign div_stall = es_div_enable & ~div_complete;//除法阻塞
 
