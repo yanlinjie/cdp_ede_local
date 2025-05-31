@@ -103,34 +103,34 @@ id_stage id_stage(
 );
 // EXE stage
 exe_stage exe_stage(
-    .clk            (clk            ),
-    .reset          (reset          ),
+    .clk                               (clk                       ),
+    .reset                             (reset                     ),
     //allowin
-    .ms_allowin     (ms_allowin     ),
-    .es_allowin     (es_allowin     ),
+    .ms_allowin                        (ms_allowin                ),
+    .es_allowin                        (es_allowin                ),
     //from ds
-    .ds_to_es_valid (ds_to_es_valid ),
-    .ds_to_es_bus   (ds_to_es_bus   ),
+    .ds_to_es_valid                    (ds_to_es_valid            ),
+    .ds_to_es_bus                      (ds_to_es_bus              ),
     //to ms
-    .es_to_ms_valid (es_to_ms_valid ),
-    .es_to_ms_bus   (es_to_ms_bus   ),
+    .es_to_ms_valid                    (es_to_ms_valid            ),
+    .es_to_ms_bus                      (es_to_ms_bus              ),
 
-    .ex_dest(ex_dest),
-    .es_to_ds_result(es_to_ds_result),
+    .ex_dest                           (ex_dest                   ),
+    .es_to_ds_result                   (es_to_ds_result           ),
     // data sram interface
-    .data_sram_en   (data_sram_en   ),
-    .data_sram_we   (data_sram_we  ),
-    .data_sram_addr (data_sram_addr ),
-    .data_sram_wdata(data_sram_wdata),
+    .data_sram_en                      (data_sram_en              ),
+    .data_sram_we                      (data_sram_we              ),
+    .data_sram_addr                    (data_sram_addr            ),
+    .data_sram_wdata                   (data_sram_wdata           ),
 
-    .es_to_ds_load_op(es_to_ds_load_op),
+    .es_to_ds_load_op                  (es_to_ds_load_op          ),
 
         //div_mul
-    .es_div_enable        (es_div_enable       ),
-    .es_mul_div_sign      (es_mul_div_sign     ),
-    .rj_value          (es_rj_value         ),
-    .rkd_value         (es_rkd_value        ),
-    .div_complete         (div_complete        )
+    .es_div_enable                     (es_div_enable             ),
+    .es_mul_div_sign                   (es_mul_div_sign           ),
+    .rj_value                          (es_rj_value               ),
+    .rkd_value                         (es_rkd_value              ),
+    .div_complete                      (div_complete              ) 
 );
 // MEM stage
 mem_stage mem_stage(
