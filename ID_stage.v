@@ -42,6 +42,8 @@ reg         ds_valid   ;
 wire        ds_ready_go;
 
 wire [11:0] alu_op;
+wire [ 3:0] mul_div_op;
+wire        mul_div_sign;
 
 wire        load_op;
 wire        src1_is_pc;
@@ -106,6 +108,13 @@ wire inst_xori;
 wire inst_sll_w;
 wire inst_srl_w;
 wire inst_sra_w;
+wire inst_mul_w;//乘除法
+wire inst_mulh_w;
+wire inst_mulh_wu;
+wire inst_div_w;
+wire inst_mod_w;
+wire inst_div_wu;
+wire inst_mod_wu;
 
 
 
@@ -194,6 +203,14 @@ assign inst_xori       = op_31_26_d[6'h00] & op_25_22_d[4'hf];
 assign inst_sll_w      = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h1] & op_19_15_d[5'h0e];
 assign inst_srl_w      = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h1] & op_19_15_d[5'h0f];
 assign inst_sra_w      = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h1] & op_19_15_d[5'h10];
+assign inst_mul_w      = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h1] & op_19_15_d[5'h18];
+assign inst_mulh_w     = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h1] & op_19_15_d[5'h19];
+assign inst_mulh_wu    = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h1] & op_19_15_d[5'h1a];
+assign inst_div_w      = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h2] & op_19_15_d[5'h00];
+assign inst_mod_w      = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h2] & op_19_15_d[5'h01];
+assign inst_div_wu     = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h2] & op_19_15_d[5'h02];
+assign inst_mod_wu     = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h2] & op_19_15_d[5'h03];
+
 
 
 
@@ -210,6 +227,13 @@ assign alu_op[ 8] = inst_sll_w | inst_slli_w;
 assign alu_op[ 9] = inst_srl_w | inst_srli_w;
 assign alu_op[10] = inst_sra_w | inst_srai_w;
 assign alu_op[11] = inst_lu12i_w;
+
+assign mul_div_op[ 0] = inst_mul_w;
+assign mul_div_op[ 1] = inst_mulh_w | inst_mulh_wu;
+assign mul_div_op[ 2] = inst_div_w  | inst_div_wu;
+assign mul_div_op[ 3] = inst_mod_w  | inst_mod_wu;
+
+assign mul_div_sign  =  inst_mul_w | inst_mulh_w | inst_div_w | inst_mod_w;
 
 
 assign need_ui5   =  inst_slli_w | inst_srli_w | inst_srai_w;
@@ -315,7 +339,7 @@ assign rj_wait = ~src_no_rj && (rj != 5'b00000) && ((rj == es_to_ds_dest) || (rj
 assign rk_wait = ~src_no_rk && (rk != 5'b00000) && ((rk == es_to_ds_dest) || (rk == ms_to_ds_dest) || (rk == ws_to_ds_dest));
 assign rd_wait = ~src_no_rd && (rd != 5'b00000) && ((rd == es_to_ds_dest) || (rd == ms_to_ds_dest) || (rd == ws_to_ds_dest));
 
-// assign no_wait = ~rj_wait & ~rk_wait & ~rd_wait;
+
 
 
 // es is load and ds is jmp(taken) exp9 未使用
@@ -340,19 +364,22 @@ assign {rf_we   ,  //37:37
        } = ws_to_rf_bus;
 
 //译码结束后打包进bus 再传输给下一阶段 
-assign ds_to_es_bus = {alu_op       ,   // 12 用于判断alu操作符
-                       load_op      ,   // 1  load operator
-                       src1_is_pc   ,   // 1  alusrc1来源
-                       src2_is_imm  ,   // 1  alusrc2来源
-                       src2_is_4    ,   // 1  alusrc2来源 表示是 4
-                       gr_we        ,   // 1  rd写使能
-                       mem_we       ,   // 1  mem写使能
-                       dest         ,   // 5  rd addr
-                       imm          ,   // 32 imm
-                       rj_value     ,   // 32 rj data
-                       rkd_value    ,   // 32 rk data
-                       ds_pc        ,   // 32  //跳转pc
-                       res_from_mem            //rd data from mem
+assign ds_to_es_bus = {
+                       mul_div_op   ,   // 156:153   乘除op
+                       mul_div_sign ,   // 152:152   有符号乘除法
+                       alu_op       ,   // 151:140  用于判断alu操作符
+                       load_op      ,   // 139:139  load operator
+                       src1_is_pc   ,   // 138:138  alusrc1来源
+                       src2_is_imm  ,   // 137:317  alusrc2来源
+                       src2_is_4    ,   // 136:136  alusrc2来源 表示是 4
+                       gr_we        ,   // 135:135  rd写使能
+                       mem_we       ,   // 134:134  mem写使能
+                       dest         ,   // 133:129  rd addr
+                       imm          ,   // 128:97   imm
+                       rj_value     ,   // 96 :65   rj data
+                       rkd_value    ,   // 64 :33   rk data
+                       ds_pc        ,   // 32 :1    //跳转pc
+                       res_from_mem     // 0  :0    //rd data from mem
                     };
 
 assign ds_ready_go    = ds_valid & ~load_stall;//针对于本阶段

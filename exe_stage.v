@@ -13,16 +13,26 @@ module exe_stage(
     output  wire                       es_to_ms_valid,//
     output wire [`ES_TO_MS_BUS_WD -1:0] es_to_ms_bus ,//
 
-//用于前递
-    output wire [4:0] ex_dest,//输出给id 目前用于阻塞
-    output [31:0] es_to_ds_result,
+    //div_mul
+    output wire                         es_div_enable              ,
+    output wire                         es_mul_div_sign            ,
+    output wire        [  31:0]         rj_value                ,
+    output wire        [  31:0]         rkd_value               ,
+    input  wire                         div_complete               ,
 
-    // data sram interface(write) 
-    output wire       data_sram_en   ,//对sram的接口 
-    output wire [ 3:0] data_sram_we   ,
-    output wire [31:0] data_sram_addr ,
-    output wire [31:0] data_sram_wdata,
-    output  wire      es_to_ds_load_op
+
+//用于前递 forward
+    output wire        [   4:0]         ex_dest                    ,//输出给id 目前用于阻塞
+    output wire        [  31:0]         es_to_ds_result            ,//前递计算后的数据
+    output wire                         es_to_ds_load_op           ,//前递 当前阶段是否为load指令
+    output wire                         div_stall                  ,//目前可能暂时不需要输出,直接在本周期本阶段阻塞即可
+
+// data sram interface(write) 
+    output wire                         data_sram_en               ,//对sram的接口 
+    output wire        [   3:0]         data_sram_we               ,
+    output wire        [  31:0]         data_sram_addr             ,
+    output wire        [  31:0]         data_sram_wdata             
+    // output  wire      es_to_ds_load_op
 );
 
 reg         es_valid      ;
@@ -44,9 +54,14 @@ wire [31:0] rj_value;
 wire [31:0] rkd_value;
 wire [31:0] imm;
 wire [31:0] es_pc;
-
-
-assign {alu_op,      
+// wire div_stall;//除法器阻塞
+// wire es_div_enable;
+wire es_mul_enable;
+wire [ 3:0] es_mul_div_op;
+assign {
+        es_mul_div_op   ,   // 156:153   乘除op
+        es_mul_div_sign ,   // 152:152   有符号乘除法
+        alu_op,      
         es_load_op,
         src1_is_pc,
         src2_is_imm, 
@@ -72,7 +87,9 @@ wire [31:0] alu_result ;
 assign es_to_ds_load_op = es_load_op & es_valid;
 
 
-assign es_to_ms_bus = {res_from_mem,  //70:70 1
+assign es_to_ms_bus = {
+                        es_mul_div_op, //74:71 4    
+                        res_from_mem,  //70:70 1
                        gr_we       ,  //69:69 1
                        dest        ,  //68:64 5
                        alu_result  ,  //63:32 32
@@ -80,7 +97,7 @@ assign es_to_ms_bus = {res_from_mem,  //70:70 1
                       };
 
 
-assign es_ready_go    = 1'b1;
+assign es_ready_go    = ~ div_stall;
 assign es_allowin     = !es_valid || es_ready_go && ms_allowin;
 assign es_to_ms_valid =  es_valid && es_ready_go;
 always @(posedge clk) begin
@@ -99,9 +116,18 @@ end
 assign alu_src1 = src1_is_pc  ? es_pc  : rj_value;
 assign alu_src2 = src2_is_imm ? imm : rkd_value;
 
+
+assign es_div_enable = (es_mul_div_op[2] | es_mul_div_op[3]) & es_valid;
+assign es_mul_enable = es_mul_div_op[0] | es_mul_div_op[1];
+
+assign div_stall = es_div_enable & ~div_complete;//除法阻塞
+
 //前递 to ds  两个数据都是在本阶段的上升沿后 触发ds_to_es_bus_r中的数据更新 再使用组合逻辑执行es阶段
 assign ex_dest = dest & {5{es_valid}};
 assign es_to_ds_result = alu_result;
+
+
+
 alu u_alu(
     .alu_op     (alu_op    ),
     .alu_src1   (alu_src1  ),

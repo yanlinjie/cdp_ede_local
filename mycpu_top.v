@@ -49,6 +49,14 @@ wire                                    es_to_ds_load_op           ;
 wire                   [  31:0]         es_to_ds_result            ;
 wire                   [  31:0]         ms_to_ds_result           ;
 wire                   [  31:0]         ws_to_ds_result            ;
+wire         es_div_enable;
+wire         es_mul_div_sign;
+wire [31:0]  es_rj_value;
+wire [31:0]  es_rkd_value;
+wire         div_complete;
+wire [31:0]  div_result;
+wire [31:0]  mod_result;
+wire [63:0]  mul_result;
 // IF stage
 if_stage if_stage(
     .clk            (clk            ),
@@ -115,26 +123,38 @@ exe_stage exe_stage(
     .data_sram_addr (data_sram_addr ),
     .data_sram_wdata(data_sram_wdata),
 
-    .es_to_ds_load_op(es_to_ds_load_op)
+    .es_to_ds_load_op(es_to_ds_load_op),
+
+        //div_mul
+    .es_div_enable        (es_div_enable       ),
+    .es_mul_div_sign      (es_mul_div_sign     ),
+    .rj_value          (es_rj_value         ),
+    .rkd_value         (es_rkd_value        ),
+    .div_complete         (div_complete        )
 );
 // MEM stage
 mem_stage mem_stage(
-    .clk            (clk            ),
-    .reset          (reset          ),
+    .clk                               (clk                       ),
+    .reset                             (reset                     ),
     //allowin
-    .ws_allowin     (ws_allowin     ),
-    .ms_allowin     (ms_allowin     ),
+    .ws_allowin                        (ws_allowin                ),
+    .ms_allowin                        (ms_allowin                ),
     //from es
-    .es_to_ms_valid (es_to_ms_valid ),
-    .es_to_ms_bus   (es_to_ms_bus   ),
+    .es_to_ms_valid                    (es_to_ms_valid            ),
+    .es_to_ms_bus                      (es_to_ms_bus              ),
     //to ws
-    .ms_to_ws_valid (ms_to_ws_valid ),
-    .ms_to_ws_bus   (ms_to_ws_bus   ),
+    .ms_to_ws_valid                    (ms_to_ws_valid            ),
+    .ms_to_ws_bus                      (ms_to_ws_bus              ),
     //from data-sram
-    .data_sram_rdata(data_sram_rdata),
+    .data_sram_rdata                   (data_sram_rdata           ),
 
-    .mem_dest(mem_dest),
-    .ms_to_ds_result(ms_to_ds_result)
+    .mem_dest                          (mem_dest                  ),
+    .ms_to_ds_result                   (ms_to_ds_result           ),
+
+        //div mul result need to ws
+    .div_result                        (div_result                ),
+    .mod_result                        (mod_result                ),
+    .mul_result                        (mul_result                ) 
 );
 // WB stage
 wb_stage wb_stage(
@@ -157,5 +177,27 @@ wb_stage wb_stage(
     .debug_wb_rf_wnum (debug_wb_rf_wnum ),
     .debug_wb_rf_wdata(debug_wb_rf_wdata)
 );
+
+div u_div(
+    .div_clk         (clk           ),
+    .reset           (reset          ),
+    .div             (es_div_enable  ),
+    .div_signed      (es_mul_div_sign),
+    .x               (es_rj_value    ),
+    .y               (es_rkd_value   ),
+    .s               (div_result     ),
+    .r               (mod_result     ),
+    .complete        (div_complete   )
+    );
+
+mul u_mul(
+    .mul_clk         (clk           ),
+    .reset           (reset          ),
+    .mul_signed      (es_mul_div_sign),
+    .x               (es_rj_value    ),
+    .y               (es_rkd_value   ),
+    .result          (mul_result     )
+    );
+
 
 endmodule
