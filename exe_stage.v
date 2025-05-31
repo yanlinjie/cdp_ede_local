@@ -51,8 +51,8 @@ wire        dst_is_r1;
 wire        gr_we;
 wire        es_mem_we;
 wire [4: 0] dest;
-wire [31:0] rj_value;
-wire [31:0] rkd_value;
+// wire [31:0] rj_value;
+// wire [31:0] rkd_value;
 wire [31:0] imm;
 wire [31:0] es_pc;
 wire [1:0] es_mem_size;
@@ -136,6 +136,35 @@ assign ex_dest = dest & {5{es_valid}};
 assign es_to_ds_result = alu_result;
 
 
+wire [ 1:0] sram_addr_low2bit;
+assign sram_addr_low2bit = {alu_result[1], alu_result[0]};
+
+wire [3:0] es_stb_wen = { sram_addr_low2bit==2'b11  ,
+                          sram_addr_low2bit==2'b10  ,
+                          sram_addr_low2bit==2'b01  ,
+                          sram_addr_low2bit==2'b00} ;
+
+wire [3:0] es_sth_wen = { sram_addr_low2bit==2'b10  ,
+                          sram_addr_low2bit==2'b10  ,
+                          sram_addr_low2bit==2'b00  ,
+                          sram_addr_low2bit==2'b00} ;
+
+wire [31:0] es_stb_cont = { {8{es_stb_wen[3]}} & rkd_value[7:0] ,
+                            {8{es_stb_wen[2]}} & rkd_value[7:0] ,
+                            {8{es_stb_wen[1]}} & rkd_value[7:0] ,
+                            {8{es_stb_wen[0]}} & rkd_value[7:0]};
+
+wire [31:0] es_sth_cont = { {16{es_sth_wen[3]}} & rkd_value[15:0] ,
+                            {16{es_sth_wen[0]}} & rkd_value[15:0]};
+wire [3:0] wr_byte_en;
+wire [2:0] data_size;
+assign {wr_byte_en, data_size}  = ({7{es_mem_size[0]}} & {es_stb_wen, 3'b00}) |
+                                  ({7{es_mem_size[1]}} & {es_sth_wen, 3'b01}) |
+                                  ({7{!es_mem_size  }} & {4'b1111   , 3'b10}) ;        
+wire [31:0] data_wdata;
+assign data_wdata = ({32{es_mem_size[0]}} & es_stb_cont ) |
+                    ({32{es_mem_size[1]}} & es_sth_cont ) |
+                    ({32{!es_mem_size  }} & rkd_value) ; 
 
 alu u_alu(
     .alu_op     (alu_op    ),
@@ -145,9 +174,9 @@ alu u_alu(
     );
 
 assign data_sram_en    = 1'b1;
-assign data_sram_we    = es_mem_we && es_valid ? 4'hf : 4'h0;//
+assign data_sram_we    = es_mem_we && es_valid ? wr_byte_en : 4'h0;//
 assign data_sram_addr  = alu_result;
-assign data_sram_wdata = rkd_value;
+assign data_sram_wdata = data_wdata;
 
 
 endmodule
