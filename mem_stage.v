@@ -40,9 +40,14 @@ wire [31:0] mem_result;
 wire [31:0] ms_final_result;
 
 wire [ 3:0] ms_mul_div_op;
+wire [1: 0] ms_mem_size;
+wire ms_mem_sign_exted;
+wire [1:0] sram_addr_low2bit;
 
 assign {
-        ms_mul_div_op,
+        ms_mem_sign_exted, //77:77   是否符号拓展
+        ms_mem_size ,    //76:75 2
+        ms_mul_div_op,   //74:71 4
         ms_res_from_mem,  //70:70
         ms_gr_we       ,  //69:69
         ms_dest        ,  //68:64
@@ -71,8 +76,25 @@ always @(posedge clk) begin
         es_to_ms_bus_r  = es_to_ms_bus;
     end
 end
+// 01 b  10 hw
+assign sram_addr_low2bit = {ms_alu_result[1], ms_alu_result[0]};
 
-assign mem_result   = data_sram_rdata;//访存读出的数据
+wire [7:0] mem_byteLoaded = ({8{sram_addr_low2bit==2'b00}} & data_sram_rdata[ 7: 0]) |
+                            ({8{sram_addr_low2bit==2'b01}} & data_sram_rdata[15: 8]) |
+                            ({8{sram_addr_low2bit==2'b10}} & data_sram_rdata[23:16]) |
+                            ({8{sram_addr_low2bit==2'b11}} & data_sram_rdata[31:24]) ; 
+
+wire [15:0] mem_halfLoaded = ({16{sram_addr_low2bit==2'b00}} & data_sram_rdata[15: 0]) |
+                             ({16{sram_addr_low2bit==2'b10}} & data_sram_rdata[31:16]) ;
+
+
+assign mem_result = ({32{ms_mem_size[0] &&  ms_mem_sign_exted}} & {{24{mem_byteLoaded[ 7]}}, mem_byteLoaded}) |
+                    ({32{ms_mem_size[0] && ~ms_mem_sign_exted}} & { 24'b0                  , mem_byteLoaded}) |
+                    ({32{ms_mem_size[1] &&  ms_mem_sign_exted}} & {{16{mem_halfLoaded[15]}}, mem_halfLoaded}) |
+                    ({32{ms_mem_size[1] && ~ms_mem_sign_exted}} & { 16'b0                  , mem_halfLoaded}) |
+                    ({32{!ms_mem_size}}                         &   data_sram_rdata                                  ) ;
+
+// assign mem_result   =  mem_size[0] ? data_sram_rdata[7:0] : data_sram_rdata;//访存读出的数据
 assign ms_final_result = ms_res_from_mem  ?  mem_result        : 
                          ms_mul_div_op[0] ?  mul_result[31:0]  : 
                          ms_mul_div_op[1] ?  mul_result[63:32] :

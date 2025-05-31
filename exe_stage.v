@@ -55,11 +55,17 @@ wire [31:0] rj_value;
 wire [31:0] rkd_value;
 wire [31:0] imm;
 wire [31:0] es_pc;
+wire [1:0] es_mem_size;
 // wire div_stall;//除法器阻塞
 // wire es_div_enable;
 // wire es_mul_enable;
 wire [ 3:0] es_mul_div_op;
+wire es_mem_sign_exted ;
+
+
 assign {
+        es_mem_sign_exted, //159:159   是否符号拓展
+        es_mem_size ,      // 158:157  ld类指令访存大小 01 - b  11 - h
         es_mul_div_op   ,   // 156:153   乘除op
         es_mul_div_sign ,   // 152:152   有符号乘除法
         alu_op,      
@@ -89,6 +95,8 @@ assign es_to_ds_load_op = es_load_op & es_valid;
 
 
 assign es_to_ms_bus = {
+                        es_mem_sign_exted, //77:77   是否符号拓展
+                        es_mem_size,   //76:75 2
                         es_mul_div_op, //74:71 4    
                         res_from_mem,  //70:70 1
                        gr_we       ,  //69:69 1
