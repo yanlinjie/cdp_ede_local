@@ -1,0 +1,108 @@
+`include "C:/Users/14861/Desktop/loongson/cdp_ede_local/mycpu_env/myCPU/my_cpu.vh"
+
+
+module mem_stage(
+    input    wire                      clk           ,
+    input     wire                     reset         ,
+    //allowin
+    input     wire                     ws_allowin    ,
+    output    wire                     ms_allowin    ,
+    //from es
+    input     wire                     es_to_ms_valid,
+    input wire [`ES_TO_MS_BUS_WD -1:0] es_to_ms_bus  ,
+    //to ws
+    output    wire                     ms_to_ws_valid,
+    output wire [`MS_TO_WS_BUS_WD -1:0] ms_to_ws_bus  ,
+
+//用于前递   后续可以合并 减少端口 方便阅读吧
+    output wire [4:0] mem_dest,
+    output wire [31:0]  ms_to_ds_result,
+
+    //from data-sram
+    input wire  [31                 :0] data_sram_rdata,//访存结果
+    
+input wire [31:0]  div_result,
+input wire [31:0]  mod_result,
+input wire [63:0]  mul_result
+);
+
+reg         ms_valid;
+wire        ms_ready_go;
+
+reg [`ES_TO_MS_BUS_WD -1:0] es_to_ms_bus_r;
+wire        ms_res_from_mem;
+wire        ms_gr_we;
+wire [ 4:0] ms_dest;
+wire [31:0] ms_alu_result;
+wire [31:0] ms_pc;
+
+wire [31:0] mem_result;
+wire [31:0] ms_final_result;
+
+wire [ 3:0] ms_mul_div_op;
+wire [1: 0] ms_mem_size;
+wire ms_mem_sign_exted;
+wire [1:0] sram_addr_low2bit;
+
+assign {
+        ms_mem_sign_exted, //77:77   是否符号拓展
+        ms_mem_size ,    //76:75 2
+        ms_mul_div_op,   //74:71 4
+        ms_res_from_mem,  //70:70
+        ms_gr_we       ,  //69:69
+        ms_dest        ,  //68:64
+        ms_alu_result  ,  //63:32
+        ms_pc             //31:0
+       } = es_to_ms_bus_r;
+
+assign ms_to_ws_bus = {ms_gr_we       ,  //69:69
+                       ms_dest        ,  //68:64
+                       ms_final_result,  //63:32
+                       ms_pc             //31:0
+                      };
+
+assign ms_ready_go    = 1'b1;
+assign ms_allowin     = !ms_valid || ms_ready_go && ws_allowin;
+assign ms_to_ws_valid = ms_valid && ms_ready_go;
+always @(posedge clk) begin
+    if (reset) begin
+        ms_valid <= 1'b0;
+    end
+    else if (ms_allowin) begin
+        ms_valid <= es_to_ms_valid;
+    end
+
+    if (es_to_ms_valid && ms_allowin) begin
+        es_to_ms_bus_r  = es_to_ms_bus;
+    end
+end
+// 01 b  10 hw
+assign sram_addr_low2bit = {ms_alu_result[1], ms_alu_result[0]};
+
+wire [7:0] mem_byteLoaded = ({8{sram_addr_low2bit==2'b00}} & data_sram_rdata[ 7: 0]) |
+                            ({8{sram_addr_low2bit==2'b01}} & data_sram_rdata[15: 8]) |
+                            ({8{sram_addr_low2bit==2'b10}} & data_sram_rdata[23:16]) |
+                            ({8{sram_addr_low2bit==2'b11}} & data_sram_rdata[31:24]) ; 
+
+wire [15:0] mem_halfLoaded = ({16{sram_addr_low2bit==2'b00}} & data_sram_rdata[15: 0]) |
+                             ({16{sram_addr_low2bit==2'b10}} & data_sram_rdata[31:16]) ;
+
+
+assign mem_result = ({32{ms_mem_size[0] &&  ms_mem_sign_exted}} & {{24{mem_byteLoaded[ 7]}}, mem_byteLoaded}) |
+                    ({32{ms_mem_size[0] && ~ms_mem_sign_exted}} & { 24'b0                  , mem_byteLoaded}) |
+                    ({32{ms_mem_size[1] &&  ms_mem_sign_exted}} & {{16{mem_halfLoaded[15]}}, mem_halfLoaded}) |
+                    ({32{ms_mem_size[1] && ~ms_mem_sign_exted}} & { 16'b0                  , mem_halfLoaded}) |
+                    ({32{!ms_mem_size}}                         &   data_sram_rdata                                  ) ;
+
+// assign mem_result   =  mem_size[0] ? data_sram_rdata[7:0] : data_sram_rdata;//访存读出的数据
+assign ms_final_result = ms_res_from_mem  ?  mem_result        : 
+                         ms_mul_div_op[0] ?  mul_result[31:0]  : 
+                         ms_mul_div_op[1] ?  mul_result[63:32] :
+                         ms_mul_div_op[2] ?  div_result        :
+                         ms_mul_div_op[3] ?  mod_result        :   ms_alu_result;
+
+//前递 to ds
+assign mem_dest = ms_dest & {5{ms_valid}};//
+assign ms_to_ds_result = ms_final_result;
+
+endmodule
